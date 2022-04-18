@@ -1,5 +1,6 @@
 from pathlib import Path
 import sys
+import matplotlib.pyplot as plt
 
 
 class SearchingModelPath:
