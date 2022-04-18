@@ -1,6 +1,16 @@
 from pathlib import Path
 import sys
 import matplotlib.pyplot as plt
+import matplotlib.pyplot as plt
+import matplotlib as mpl
+
+import numpy as np
+
+import cartopy.crs as ccrs
+
+import xarray as xr
+
+from eofs.xarray import Eof
 
 
 class SearchingModelPath:
