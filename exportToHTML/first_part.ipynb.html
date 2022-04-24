@@ -1,0 +1,647 @@
+<html>
+<head>
+<title>first_part.ipynb</title>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<style type="text/css">
+.s0 { color: #808080;}
+.s1 { color: #cc7832;}
+.s2 { color: #a9b7c6;}
+.s3 { color: #6897bb;}
+.s4 { color: #6a8759;}
+.s5 { color: #629755; font-style: italic;}
+</style>
+</head>
+<body bgcolor="#2b2b2b">
+<table CELLSPACING=0 CELLPADDING=5 COLS=1 WIDTH="100%" BGCOLOR="#606060" >
+<tr><td><center>
+<font face="Arial, Helvetica" color="#000000">
+first_part.ipynb</font>
+</center></td></tr></table>
+<pre><span class="s0">#%% 
+</span><span class="s1">from </span><span class="s2">pathlib </span><span class="s1">import </span><span class="s2">Path</span>
+<span class="s1">import </span><span class="s2">sys</span>
+<span class="s1">import </span><span class="s2">matplotlib.pyplot </span><span class="s1">as </span><span class="s2">plt</span>
+<span class="s1">import </span><span class="s2">matplotlib </span><span class="s1">as </span><span class="s2">mpl</span>
+<span class="s1">from </span><span class="s2">geopy.geocoders </span><span class="s1">import </span><span class="s2">Nominatim</span>
+<span class="s1">import </span><span class="s2">numpy </span><span class="s1">as </span><span class="s2">np</span>
+<span class="s1">from </span><span class="s2">scipy.cluster.hierarchy </span><span class="s1">import </span><span class="s2">single</span><span class="s1">, </span><span class="s2">complete</span><span class="s1">, </span><span class="s2">average</span><span class="s1">, </span><span class="s2">ward</span><span class="s1">, </span><span class="s2">dendrogram</span>
+<span class="s1">from </span><span class="s2">sklearn.cluster </span><span class="s1">import </span><span class="s2">KMeans</span>
+<span class="s1">from </span><span class="s2">mpl_toolkits.mplot3d </span><span class="s1">import </span><span class="s2">Axes3D</span>
+<span class="s1">from </span><span class="s2">sklearn.decomposition </span><span class="s1">import </span><span class="s2">PCA</span>
+<span class="s1">from </span><span class="s2">sklearn.preprocessing </span><span class="s1">import </span><span class="s2">StandardScaler</span>
+<span class="s1">from </span><span class="s2">sklearn.cluster </span><span class="s1">import </span><span class="s2">KMeans</span>
+<span class="s1">from </span><span class="s2">sklearn.datasets </span><span class="s1">import </span><span class="s2">make_blobs</span>
+<span class="s1">from </span><span class="s2">yellowbrick.cluster </span><span class="s1">import </span><span class="s2">KElbowVisualizer</span>
+<span class="s1">import </span><span class="s2">pickle</span>
+
+<span class="s1">import </span><span class="s2">cartopy.crs </span><span class="s1">as </span><span class="s2">ccrs</span>
+
+<span class="s1">import </span><span class="s2">xarray </span><span class="s1">as </span><span class="s2">xr</span>
+
+<span class="s1">from </span><span class="s2">eofs.xarray </span><span class="s1">import </span><span class="s2">Eof</span>
+
+<span class="s1">def </span><span class="s2">plot_final_map(data</span><span class="s1">, </span><span class="s2">n=</span><span class="s1">None</span><span class="s2">):</span>
+
+    <span class="s2">fig = plt.figure(figsize=(</span><span class="s3">15</span><span class="s1">,</span><span class="s3">10</span><span class="s2">))</span>
+    <span class="s2">ax = plt.axes(projection=ccrs.PlateCarree())</span>
+    <span class="s2">ax.stock_img()</span>
+
+
+    <span class="s2">plt.scatter(x=data[data[</span><span class="s4">'labels'</span><span class="s2">]==n][</span><span class="s4">'latitude'</span><span class="s2">]</span><span class="s1">, </span><span class="s2">y=data[data[</span><span class="s4">'labels'</span><span class="s2">]==n][</span><span class="s4">'longitude'</span><span class="s2">]</span><span class="s1">,</span>
+                <span class="s2">color=</span><span class="s4">&quot;red&quot;</span><span class="s1">,</span>
+                <span class="s2">s=</span><span class="s3">10</span><span class="s1">,</span>
+                <span class="s2">alpha=</span><span class="s3">0.5</span><span class="s1">,</span>
+                <span class="s2">transform=ccrs.PlateCarree())</span>
+
+
+
+    <span class="s2">plt.show()</span>
+    <span class="s1">return</span>
+
+
+<span class="s1">class </span><span class="s2">SearchingModelPath:</span>
+
+    <span class="s1">def </span><span class="s2">__init__(self</span><span class="s1">, </span><span class="s2">searching_model_path=</span><span class="s1">None</span><span class="s2">):</span>
+        <span class="s2">self.searching_model_path = searching_model_path</span>
+
+    <span class="s1">def </span><span class="s2">searching_model_path(name: str):</span>
+
+        <span class="s5">&quot;&quot;&quot;Insert the name string of the model so i can reach for you&quot;&quot;&quot;</span>
+        <span class="s1">try</span><span class="s2">:</span>
+            <span class="s2">path_home = Path.home()</span>
+            <span class="s2">path_directory = path_home / </span><span class="s4">'Desktop/Unimib/Data Science/Second Year/Physics and environmental data lab/Environmental/Materiale Corso/Final_ex/final_exam_envi/Model Folder'</span>
+            <span class="s2">path_model = path_directory / name</span>
+            <span class="s1">if not </span><span class="s2">path_model.exists():</span>
+                <span class="s2">sys.exit()</span>
+            <span class="s1">return </span><span class="s2">path_model</span>
+        <span class="s1">except </span><span class="s2">SystemExit:</span>
+            <span class="s2">print(</span><span class="s4">'Insert string and valid model name'</span><span class="s2">)</span>
+
+
+<span class="s1">def </span><span class="s2">searching_model_path(name: str):</span>
+
+    <span class="s5">&quot;&quot;&quot;Insert the name string of the model so i can reach for you&quot;&quot;&quot;</span>
+    <span class="s1">try</span><span class="s2">:</span>
+        <span class="s2">path_home = Path.home()</span>
+        <span class="s2">path_directory = path_home / </span><span class="s4">'Desktop/Unimib/Data Science/Second Year/Physics and environmental data lab/Environmental/Materiale Corso/Final_ex/final_exam_envi/Model Folder'</span>
+        <span class="s2">path_model = path_directory / name</span>
+        <span class="s1">if not </span><span class="s2">path_model.exists():</span>
+            <span class="s2">sys.exit()</span>
+        <span class="s1">return </span><span class="s2">path_model</span>
+    <span class="s1">except </span><span class="s2">SystemExit:</span>
+        <span class="s2">print(</span><span class="s4">'Insert string and valid model name'</span><span class="s2">)</span>
+
+    <span class="s1">return</span>
+
+
+<span class="s1">def </span><span class="s2">plot_part_of_map(ens</span><span class="s1">,</span><span class="s2">a</span><span class="s1">,</span><span class="s2">b</span><span class="s1">,</span><span class="s2">c</span><span class="s1">,</span><span class="s2">d):</span>
+    <span class="s5">&quot;&quot;&quot;Plot a part of a map&quot;&quot;&quot;</span>
+
+    <span class="s2">d1_nat = ens.sel(lat=slice(a</span><span class="s1">,</span><span class="s2">b)</span><span class="s1">, </span><span class="s2">lon=slice(c</span><span class="s1">,</span><span class="s2">d))</span>
+    <span class="s2">psl_nat=d1_nat.ens_mean</span>
+    <span class="s2">fig = plt.figure(figsize=(</span><span class="s3">30</span><span class="s1">,</span><span class="s3">24</span><span class="s2">))  </span><span class="s0"># x,y(inches)</span>
+
+    <span class="s2">ax = plt.axes(projection=ccrs.PlateCarree())</span>
+    <span class="s2">ax.set_title(</span><span class="s4">''</span><span class="s2">.join([</span><span class="s4">'ciao'</span><span class="s1">,</span><span class="s4">'</span><span class="s1">\n</span><span class="s4">'</span><span class="s2">]))</span>
+    <span class="s2">ax.set_global()</span>
+    <span class="s2">mm = ax.contourf(psl_nat.lon</span><span class="s1">, </span><span class="s2">psl_nat.lat</span><span class="s1">, </span><span class="s2">psl_nat.mean(axis=</span><span class="s3">0</span><span class="s2">)</span><span class="s1">, </span><span class="s2">transform=ccrs.PlateCarree()</span><span class="s1">, </span><span class="s2">cmap=</span><span class="s4">'jet'</span><span class="s2">)</span>
+
+    <span class="s2">ax.coastlines()</span>
+    <span class="s2">ax.gridlines(draw_labels=</span><span class="s1">True</span><span class="s2">)</span>
+
+    <span class="s0"># add colorbar</span>
+    <span class="s2">cbar_ax = fig.add_axes([</span><span class="s3">0.28</span><span class="s1">, </span><span class="s3">0.10</span><span class="s1">, </span><span class="s3">0.46</span><span class="s1">, </span><span class="s3">0.05</span><span class="s2">])</span>
+    <span class="s2">cbar = fig.colorbar(mm</span><span class="s1">, </span><span class="s2">cax=cbar_ax</span><span class="s1">, </span><span class="s2">extend=</span><span class="s4">'both'</span><span class="s1">, </span><span class="s2">orientation=</span><span class="s4">'horizontal'</span><span class="s2">)</span>
+    <span class="s0"># [left, bottom, width, height]</span>
+    <span class="s2">cbar.set_label(</span><span class="s4">'Temperature'</span><span class="s2">)</span>
+    <span class="s2">cbar.ax.tick_params(labelsize=</span><span class="s3">8</span><span class="s2">)</span>
+
+    <span class="s2">plt.show()</span>
+    <span class="s2">plt.close()</span>
+
+    <span class="s1">return</span>
+
+
+<span class="s1">def </span><span class="s2">point(city: str):</span>
+
+    <span class="s2">geolocator = Nominatim(user_agent=</span><span class="s4">&quot;google&quot;</span><span class="s2">)</span>
+    <span class="s2">location = geolocator.geocode(city)</span>
+    <span class="s2">print((location.latitude</span><span class="s1">, </span><span class="s2">location.longitude))</span>
+    <span class="s2">lat = (int(location.latitude)+</span><span class="s3">90</span><span class="s2">)</span>
+    <span class="s2">lon = (int(location.longitude)+</span><span class="s3">180</span><span class="s2">)</span>
+    <span class="s2">box = int(((lat) * ((lon)))/</span><span class="s3">2</span><span class="s2">)</span>
+    <span class="s2">ens = xr.load_dataset(</span><span class="s4">'/home/giodefa/Desktop/Unimib/Data Science/Second Year/Physics and environmental data '</span>
+                          <span class="s4">'lab/Environmental/Materiale Corso/Final_ex/final_exam_envi/bozza/model_ens.nc'</span><span class="s2">)</span>
+    <span class="s2">print(</span><span class="s4">f&quot;L'area selezionata è </span><span class="s1">{</span><span class="s2">location.address</span><span class="s1">} </span><span class="s4">e fa parte del cluster numero </span><span class="s1">{</span><span class="s2">kmeans.labels_[int(box)-</span><span class="s3">1</span><span class="s2">]</span><span class="s1">} </span><span class="s4">per il kmean mentre per il cluster gerarchico </span><span class="s1">{</span><span class="s2">cutree[int(box)-</span><span class="s3">1</span><span class="s2">][</span><span class="s3">0</span><span class="s2">]</span><span class="s1">}</span><span class="s4">&quot;</span><span class="s2">)</span>
+    <span class="s2">plot_part_of_map(ens</span><span class="s1">,</span><span class="s2">int(location.latitude)</span><span class="s1">,</span><span class="s2">int(location.latitude)+</span><span class="s3">2</span><span class="s1">,</span><span class="s2">int(location.longitude)</span><span class="s1">,</span><span class="s2">int(location.longitude)+</span><span class="s3">2</span><span class="s2">)</span>
+    <span class="s1">return</span>
+
+
+<span class="s1">def </span><span class="s2">hierarchical_clustering(distance_matrix</span><span class="s1">, </span><span class="s2">method=</span><span class="s4">'complete'</span><span class="s2">):</span>
+    <span class="s1">if </span><span class="s2">method == </span><span class="s4">'complete'</span><span class="s2">:</span>
+        <span class="s2">Z = complete(distance_matrix)</span>
+    <span class="s1">if </span><span class="s2">method == </span><span class="s4">'single'</span><span class="s2">:</span>
+        <span class="s2">Z = single(distance_matrix)</span>
+    <span class="s1">if </span><span class="s2">method == </span><span class="s4">'average'</span><span class="s2">:</span>
+        <span class="s2">Z = average(distance_matrix)</span>
+    <span class="s1">if </span><span class="s2">method == </span><span class="s4">'ward'</span><span class="s2">:</span>
+        <span class="s2">Z = ward(distance_matrix)</span>
+
+    <span class="s2">fig = plt.figure(figsize=(</span><span class="s3">16</span><span class="s1">, </span><span class="s3">8</span><span class="s2">))</span>
+    <span class="s2">dn = dendrogram(Z)</span>
+    <span class="s2">plt.title(</span><span class="s4">f&quot;Dendrogram for </span><span class="s1">{</span><span class="s2">method</span><span class="s1">}</span><span class="s4">-linkage with correlation distance&quot;</span><span class="s2">)</span>
+    <span class="s2">plt.show()</span>
+    <span class="s1">return </span><span class="s2">Z</span>
+
+
+<span class="s1">def </span><span class="s2">select_numebr_of_cluster_and_plot(n=</span><span class="s1">None</span><span class="s2">):</span>
+
+
+
+
+    <span class="s2">kmeans = KMeans(n_clusters=n</span><span class="s1">, </span><span class="s2">random_state=</span><span class="s3">0</span><span class="s2">).fit(data_mo)</span>
+    <span class="s2">labels = kmeans.labels_</span>
+
+
+
+
+    <span class="s2">fig = plt.figure()</span>
+    <span class="s2">ax = fig.add_subplot(</span><span class="s3">111</span><span class="s1">, </span><span class="s2">projection = </span><span class="s4">'3d'</span><span class="s2">)</span>
+    <span class="s2">ax = Axes3D(fig)</span>
+
+
+    <span class="s2">ax.set_xlabel(</span><span class="s4">&quot;x&quot;</span><span class="s2">)</span>
+    <span class="s2">ax.set_ylabel(</span><span class="s4">&quot;y&quot;</span><span class="s2">)</span>
+    <span class="s2">ax.set_zlabel(</span><span class="s4">&quot;z&quot;</span><span class="s2">)</span>
+    <span class="s2">sns.set(style = </span><span class="s4">&quot;darkgrid&quot;</span><span class="s2">)</span>
+    <span class="s2">ax.scatter(principalComponents[::</span><span class="s1">,</span><span class="s3">0</span><span class="s2">]</span><span class="s1">, </span><span class="s2">principalComponents[::</span><span class="s1">,</span><span class="s3">1</span><span class="s2">]</span><span class="s1">, </span><span class="s2">principalComponents[::</span><span class="s1">,</span><span class="s3">2</span><span class="s2">]</span><span class="s1">, </span><span class="s2">c=labels)</span>
+
+    <span class="s2">plt.show()</span>
+
+    <span class="s2">sns.scatterplot(x=principalComponents[::</span><span class="s1">,</span><span class="s3">0</span><span class="s2">]</span><span class="s1">, </span><span class="s2">y=principalComponents[::</span><span class="s1">,</span><span class="s3">1</span><span class="s2">]</span><span class="s1">, </span><span class="s2">hue=labels</span><span class="s1">, </span><span class="s2">palette=</span><span class="s4">'bright'</span><span class="s2">)</span>
+
+
+    <span class="s2">latitude = []</span>
+    <span class="s2">longitude = []</span>
+    <span class="s1">for </span><span class="s2">j </span><span class="s1">in </span><span class="s2">range(-</span><span class="s3">180</span><span class="s1">,</span><span class="s3">180</span><span class="s1">,</span><span class="s3">2</span><span class="s2">):</span>
+        <span class="s1">for </span><span class="s2">i </span><span class="s1">in </span><span class="s2">range(-</span><span class="s3">90</span><span class="s1">,</span><span class="s3">90</span><span class="s1">,</span><span class="s3">2</span><span class="s2">):</span>
+            <span class="s2">latitude.append(j)</span>
+            <span class="s2">longitude.append(i)</span>
+
+    <span class="s2">labels_dataframe_point = pd.DataFrame(labels</span><span class="s1">,</span><span class="s2">columns=[</span><span class="s4">'labels'</span><span class="s2">])</span>
+
+    <span class="s2">latitude = pd.DataFrame(latitude</span><span class="s1">, </span><span class="s2">columns=[</span><span class="s4">'latitude'</span><span class="s2">])</span>
+    <span class="s2">longitude = pd.DataFrame(longitude</span><span class="s1">, </span><span class="s2">columns=[</span><span class="s4">'longitude'</span><span class="s2">])</span>
+
+    <span class="s2">labels_dataframe_point = pd.concat([labels_dataframe_point</span><span class="s1">,</span><span class="s2">latitude</span><span class="s1">,</span><span class="s2">longitude]</span><span class="s1">,</span><span class="s2">axis=</span><span class="s3">1</span><span class="s2">)</span>
+
+    <span class="s1">for </span><span class="s2">i </span><span class="s1">in </span><span class="s2">range(</span><span class="s3">0</span><span class="s1">,</span><span class="s2">n):</span>
+        <span class="s2">plot_final_map(labels_dataframe_point</span><span class="s1">,</span><span class="s2">i)</span>
+
+    <span class="s1">return</span>
+
+
+<span class="s1">def </span><span class="s2">select_numebr_of_cluster_and_plot(data</span><span class="s1">, </span><span class="s2">n=</span><span class="s1">None</span><span class="s2">):</span>
+
+
+
+
+    <span class="s2">kmeans = KMeans(n_clusters=n</span><span class="s1">, </span><span class="s2">random_state=</span><span class="s3">0</span><span class="s2">).fit(data)</span>
+    <span class="s2">labels = kmeans.labels_</span>
+
+
+    <span class="s2">x = StandardScaler().fit_transform(data_mo)</span>
+    <span class="s2">pca = PCA(n_components=</span><span class="s3">3</span><span class="s2">)</span>
+    <span class="s2">principalComponents = pca.fit_transform(x)</span>
+
+    <span class="s2">fig = plt.figure()</span>
+    <span class="s2">ax = fig.add_subplot(</span><span class="s3">111</span><span class="s1">, </span><span class="s2">projection = </span><span class="s4">'3d'</span><span class="s2">)</span>
+    <span class="s2">ax = Axes3D(fig)</span>
+
+
+    <span class="s2">ax.set_xlabel(</span><span class="s4">&quot;x&quot;</span><span class="s2">)</span>
+    <span class="s2">ax.set_ylabel(</span><span class="s4">&quot;y&quot;</span><span class="s2">)</span>
+    <span class="s2">ax.set_zlabel(</span><span class="s4">&quot;z&quot;</span><span class="s2">)</span>
+    <span class="s2">sns.set(style = </span><span class="s4">&quot;darkgrid&quot;</span><span class="s2">)</span>
+    <span class="s2">ax.scatter(principalComponents[::</span><span class="s1">,</span><span class="s3">0</span><span class="s2">]</span><span class="s1">, </span><span class="s2">principalComponents[::</span><span class="s1">,</span><span class="s3">1</span><span class="s2">]</span><span class="s1">, </span><span class="s2">principalComponents[::</span><span class="s1">,</span><span class="s3">2</span><span class="s2">]</span><span class="s1">, </span><span class="s2">c=labels)</span>
+
+    <span class="s2">plt.show()</span>
+
+    <span class="s2">sns.scatterplot(x=principalComponents[::</span><span class="s1">,</span><span class="s3">0</span><span class="s2">]</span><span class="s1">, </span><span class="s2">y=principalComponents[::</span><span class="s1">,</span><span class="s3">1</span><span class="s2">]</span><span class="s1">, </span><span class="s2">hue=labels</span><span class="s1">, </span><span class="s2">palette=</span><span class="s4">'bright'</span><span class="s2">)</span>
+
+
+    <span class="s2">latitude = []</span>
+    <span class="s2">longitude = []</span>
+    <span class="s1">for </span><span class="s2">j </span><span class="s1">in </span><span class="s2">range(-</span><span class="s3">180</span><span class="s1">,</span><span class="s3">180</span><span class="s1">,</span><span class="s3">2</span><span class="s2">):</span>
+        <span class="s1">for </span><span class="s2">i </span><span class="s1">in </span><span class="s2">range(-</span><span class="s3">90</span><span class="s1">,</span><span class="s3">90</span><span class="s1">,</span><span class="s3">2</span><span class="s2">):</span>
+            <span class="s2">latitude.append(j)</span>
+            <span class="s2">longitude.append(i)</span>
+
+    <span class="s2">labels_dataframe_point = pd.DataFrame(labels</span><span class="s1">,</span><span class="s2">columns=[</span><span class="s4">'labels'</span><span class="s2">])</span>
+
+    <span class="s2">latitude = pd.DataFrame(latitude</span><span class="s1">, </span><span class="s2">columns=[</span><span class="s4">'latitude'</span><span class="s2">])</span>
+    <span class="s2">longitude = pd.DataFrame(longitude</span><span class="s1">, </span><span class="s2">columns=[</span><span class="s4">'longitude'</span><span class="s2">])</span>
+
+    <span class="s2">labels_dataframe_point = pd.concat([labels_dataframe_point</span><span class="s1">,</span><span class="s2">latitude</span><span class="s1">,</span><span class="s2">longitude]</span><span class="s1">,</span><span class="s2">axis=</span><span class="s3">1</span><span class="s2">)</span>
+
+    <span class="s1">for </span><span class="s2">i </span><span class="s1">in </span><span class="s2">range(</span><span class="s3">0</span><span class="s1">,</span><span class="s2">n):</span>
+        <span class="s2">plot_final_map(labels_dataframe_point</span><span class="s1">,</span><span class="s2">i)</span>
+
+    <span class="s1">return</span>
+
+<span class="s1">def </span><span class="s2">select_numebr_of_cluster_hier__and_plot(n=</span><span class="s1">None</span><span class="s2">):</span>
+
+
+
+
+
+
+    <span class="s2">loaded_model = pickle.load(open(filename</span><span class="s1">, </span><span class="s4">'rb'</span><span class="s2">))</span>
+    <span class="s2">cutree = cluster.hierarchy.cut_tree(loaded_model</span><span class="s1">, </span><span class="s2">n_clusters=n)</span>
+
+    <span class="s2">latitude = []</span>
+    <span class="s2">longitude = []</span>
+    <span class="s1">for </span><span class="s2">j </span><span class="s1">in </span><span class="s2">range(-</span><span class="s3">180</span><span class="s1">,</span><span class="s3">180</span><span class="s1">,</span><span class="s3">2</span><span class="s2">):</span>
+        <span class="s1">for </span><span class="s2">i </span><span class="s1">in </span><span class="s2">range(-</span><span class="s3">90</span><span class="s1">,</span><span class="s3">90</span><span class="s1">,</span><span class="s3">2</span><span class="s2">):</span>
+            <span class="s2">latitude.append(j)</span>
+            <span class="s2">longitude.append(i)</span>
+
+    <span class="s2">labels_dataframe_point = pd.DataFrame(cutree</span><span class="s1">,</span><span class="s2">columns=[</span><span class="s4">'labels'</span><span class="s2">])</span>
+
+    <span class="s2">latitude = pd.DataFrame(latitude</span><span class="s1">, </span><span class="s2">columns=[</span><span class="s4">'latitude'</span><span class="s2">])</span>
+    <span class="s2">longitude = pd.DataFrame(longitude</span><span class="s1">, </span><span class="s2">columns=[</span><span class="s4">'longitude'</span><span class="s2">])</span>
+
+    <span class="s2">labels_dataframe_point = pd.concat([labels_dataframe_point</span><span class="s1">,</span><span class="s2">latitude</span><span class="s1">,</span><span class="s2">longitude]</span><span class="s1">,</span><span class="s2">axis=</span><span class="s3">1</span><span class="s2">)</span>
+
+    <span class="s1">for </span><span class="s2">i </span><span class="s1">in </span><span class="s2">range(</span><span class="s3">0</span><span class="s1">,</span><span class="s2">n):</span>
+        <span class="s2">plot_final_map(labels_dataframe_point</span><span class="s1">,</span><span class="s2">i)</span>
+
+    <span class="s1">return</span>
+<span class="s0">#%% 
+# Import libraries</span>
+<span class="s1">import </span><span class="s2">seaborn </span><span class="s1">as </span><span class="s2">sns</span>
+<span class="s1">import </span><span class="s2">matplotlib.pyplot </span><span class="s1">as </span><span class="s2">plt</span>
+<span class="s1">import </span><span class="s2">matplotlib </span><span class="s1">as </span><span class="s2">mpl</span>
+
+<span class="s1">import </span><span class="s2">cartopy.crs </span><span class="s1">as </span><span class="s2">ccrs</span>
+<span class="s0">#from cartopy.util import add_cyclic_point</span>
+
+<span class="s1">import </span><span class="s2">xarray </span><span class="s1">as </span><span class="s2">xr</span>
+
+<span class="s1">import </span><span class="s2">numpy </span><span class="s1">as </span><span class="s2">np</span>
+
+<span class="s1">from </span><span class="s2">cartopy.mpl.ticker </span><span class="s1">import </span><span class="s2">LongitudeFormatter</span><span class="s1">, </span><span class="s2">LatitudeFormatter</span>
+
+<span class="s1">from </span><span class="s2">matplotlib </span><span class="s1">import </span><span class="s2">colorbar</span><span class="s1">, </span><span class="s2">colors</span>
+
+<span class="s1">from </span><span class="s2">eofs.xarray </span><span class="s1">import </span><span class="s2">Eof</span>
+
+
+<span class="s1">from </span><span class="s2">bozza.function </span><span class="s1">import </span><span class="s2">searching_model_path</span><span class="s1">, </span><span class="s2">SearchingModelPath</span><span class="s1">, </span><span class="s2">point</span><span class="s1">, </span><span class="s2">plot_part_of_map</span>
+<span class="s1">import </span><span class="s2">pandas </span><span class="s1">as </span><span class="s2">pd</span>
+<span class="s1">from </span><span class="s2">geopy.geocoders </span><span class="s1">import </span><span class="s2">Nominatim</span>
+<span class="s1">from </span><span class="s2">sklearn.decomposition </span><span class="s1">import </span><span class="s2">PCA</span>
+<span class="s1">from </span><span class="s2">sklearn.preprocessing </span><span class="s1">import </span><span class="s2">StandardScaler</span>
+<span class="s1">from </span><span class="s2">sklearn.cluster </span><span class="s1">import </span><span class="s2">KMeans</span>
+<span class="s1">from </span><span class="s2">sklearn.datasets </span><span class="s1">import </span><span class="s2">make_blobs</span>
+<span class="s1">from </span><span class="s2">yellowbrick.cluster </span><span class="s1">import </span><span class="s2">KElbowVisualizer</span>
+<span class="s0">#%% md 
+</span><span class="s2">In questo script vengono caricati i modelli 
+</span><span class="s0">#%% 
+</span><span class="s2">path_model_ts_amon_mri =  searching_model_path(</span><span class="s4">'ts_Amon_MRI-AGCM3-2-S_highresSST-present_r1i1p1f1_gn_201001-201412(3).nc'</span><span class="s2">)</span>
+<span class="s2">path_model_ts_amon_mri_2h = searching_model_path(</span><span class="s4">'ts_Amon_MRI-AGCM3-2-H_highresSST-present_r1i1p1f1_gn_195001-201412.nc'</span><span class="s2">)</span>
+<span class="s0">#%% md 
+</span><span class="s2">Vediamo che il modello seguente è suddiviso in più parti quindi andrà concatenato successivamente 
+</span><span class="s0">#%% 
+</span><span class="s2">path_model_ts_amon_hiram_1 = searching_model_path(</span><span class="s4">'ts_Amon_HiRAM-SIT-HR_highresSST-present_r1i1p1f1_gn_200801-200812.nc'</span><span class="s2">)</span>
+<span class="s2">path_model_ts_amon_hiram_2 = searching_model_path(</span><span class="s4">'ts_Amon_HiRAM-SIT-HR_highresSST-present_r1i1p1f1_gn_200901-200912.nc'</span><span class="s2">)</span>
+<span class="s2">path_model_ts_amon_hiram_3 = searching_model_path(</span><span class="s4">'ts_Amon_HiRAM-SIT-HR_highresSST-present_r1i1p1f1_gn_201001-201012.nc'</span><span class="s2">)</span>
+<span class="s2">path_model_ts_amon_hiram_4 = searching_model_path(</span><span class="s4">'ts_Amon_HiRAM-SIT-HR_highresSST-present_r1i1p1f1_gn_201101-201112.nc'</span><span class="s2">)</span>
+<span class="s2">path_model_ts_amon_hiram_5 = searching_model_path(</span><span class="s4">'ts_Amon_HiRAM-SIT-HR_highresSST-present_r1i1p1f1_gn_201201-201212.nc'</span><span class="s2">)</span>
+<span class="s2">path_model_ts_amon_hiram_6 = searching_model_path(</span><span class="s4">'ts_Amon_HiRAM-SIT-HR_highresSST-present_r1i1p1f1_gn_201301-201312.nc'</span><span class="s2">)</span>
+<span class="s2">path_model_ts_amon_hiram_7 = searching_model_path(</span><span class="s4">'ts_Amon_HiRAM-SIT-HR_highresSST-present_r1i1p1f1_gn_201401-201412.nc'</span><span class="s2">)</span>
+<span class="s0">#%% 
+</span><span class="s2">model_hiram_1 = xr.open_dataset(path_model_ts_amon_hiram_1)</span>
+
+<span class="s2">model_hiram = xr.concat([</span>
+    <span class="s2">xr.open_dataset(path_model_ts_amon_hiram_1)</span><span class="s1">,</span>
+    <span class="s2">xr.open_dataset(path_model_ts_amon_hiram_2)</span><span class="s1">,</span>
+    <span class="s2">xr.open_dataset(path_model_ts_amon_hiram_3)</span><span class="s1">,</span>
+    <span class="s2">xr.open_dataset(path_model_ts_amon_hiram_4)</span><span class="s1">,</span>
+    <span class="s2">xr.open_dataset(path_model_ts_amon_hiram_5)</span><span class="s1">,</span>
+    <span class="s2">xr.open_dataset(path_model_ts_amon_hiram_6)</span><span class="s1">,</span>
+    <span class="s2">xr.open_dataset(path_model_ts_amon_hiram_7)</span><span class="s1">,</span>
+<span class="s2">]</span><span class="s1">, </span><span class="s2">dim = </span><span class="s4">&quot;time&quot;</span><span class="s2">)</span>
+<span class="s2">model_hiram = model_hiram.sel(time=slice(</span><span class="s4">'2010-01'</span><span class="s1">,</span><span class="s4">'2014-12'</span><span class="s2">))</span>
+<span class="s0">#%% md 
+</span><span class="s2">Proviamo a visualizzare le surface temperature all'interno del nostro modello 
+</span><span class="s0">#%% 
+</span><span class="s2">model_mri = xr.open_dataset(path_model_ts_amon_mri)</span>
+<span class="s2">temperature_surface_mri = model_mri.ts - </span><span class="s3">273.15</span>
+<span class="s2">temperature_surface_mri</span>
+<span class="s0">#%% 
+</span><span class="s2">print(</span><span class="s4">f'il numero di lon è </span><span class="s1">{</span><span class="s2">len(temperature_surface_mri.lon)</span><span class="s1">} </span><span class="s4">e il numero di lat è </span><span class="s1">{</span><span class="s2">len(temperature_surface_mri.lat)</span><span class="s1">}</span><span class="s4">'</span><span class="s2">)</span>
+<span class="s0">#%% 
+</span><span class="s2">print(</span><span class="s4">f'il numero di lon è </span><span class="s1">{</span><span class="s2">len(temperature_surface_model_hiram.lon)</span><span class="s1">} </span><span class="s4">e il numero di lat è </span><span class="s1">{</span><span class="s2">len(temperature_surface_model_hiram.lat)</span><span class="s1">}</span><span class="s4">'</span><span class="s2">)</span>
+<span class="s0">#%% md 
+</span><span class="s2">Di seguito possiamo osservare la temperatura media nel periodo preso in considerazione 
+</span><span class="s0">#%% 
+</span><span class="s2">fig = plt.figure(figsize=(</span><span class="s3">20</span><span class="s1">, </span><span class="s3">10</span><span class="s2">))</span>
+<span class="s2">p0 = temperature_surface_mri.mean(</span><span class="s4">'time'</span><span class="s2">).plot(transform=ccrs.PlateCarree()</span><span class="s1">,</span><span class="s2">subplot_kws={</span><span class="s4">'projection'</span><span class="s2">: ccrs.Robinson()}</span><span class="s1">,</span>
+                      <span class="s3">360</span><span class="s2">/resol      cmap=</span><span class="s4">'jet'</span><span class="s2">)</span>
+<span class="s2">p0.axes.coastlines()</span>
+<span class="s2">p0.axes.gridlines()</span>
+<span class="s2">plt.rcParams[</span><span class="s4">&quot;figure.figsize&quot;</span><span class="s2">] = (</span><span class="s3">10</span><span class="s1">,</span><span class="s3">10</span><span class="s2">)</span>
+<span class="s2">plt.title(</span><span class="s4">'Temperature' </span><span class="s2">)</span>
+<span class="s0">#%% md 
+</span><span class="s2"># Project 
+</span><span class="s0">#%% md 
+</span>
+<span class="s2">- L'idea è quella di utilizzare due modelli della temperatura superficiale ad alta risoluzione e applicare due metodi di clusterizzazione. Quindi verrà applicato un kmeans e un clustering gerarchico sulle serie temporali mediante il confronto delle stesse mediante Time warping. 
+- Più precisamente verranno calcolate le anomalie su cinque anni e prese le medie dei due modelli. Quindi il modello verrà suddiviso in griglie e successivamente verranno clusterizzate queste informazioni con i metodi sopra descritti. 
+</span><span class="s0">#%% md 
+</span>
+<span class="s0">#%% md 
+</span><span class="s2">Quindi carichiamo il modello e selezioniamo soltanto le date che ci interessano 
+</span><span class="s0">#%% 
+</span><span class="s2">model_hiram_1 = xr.open_dataset(path_model_ts_amon_hiram_1)</span>
+
+<span class="s2">model_hiram = xr.concat([</span>
+    <span class="s2">xr.open_dataset(path_model_ts_amon_hiram_1)</span><span class="s1">,</span>
+    <span class="s2">xr.open_dataset(path_model_ts_amon_hiram_2)</span><span class="s1">,</span>
+    <span class="s2">xr.open_dataset(path_model_ts_amon_hiram_3)</span><span class="s1">,</span>
+    <span class="s2">xr.open_dataset(path_model_ts_amon_hiram_4)</span><span class="s1">,</span>
+    <span class="s2">xr.open_dataset(path_model_ts_amon_hiram_5)</span><span class="s1">,</span>
+    <span class="s2">xr.open_dataset(path_model_ts_amon_hiram_6)</span><span class="s1">,</span>
+    <span class="s2">xr.open_dataset(path_model_ts_amon_hiram_7)</span><span class="s1">,</span>
+<span class="s2">]</span><span class="s1">, </span><span class="s2">dim = </span><span class="s4">&quot;time&quot;</span><span class="s2">)</span>
+<span class="s2">model_hiram = model_hiram.sel(time=slice(</span><span class="s4">'2010-01'</span><span class="s1">,</span><span class="s4">'2014-12'</span><span class="s2">))</span>
+
+
+<span class="s0">#%% md 
+</span><span class="s2">Di seguito osserviamo la media aggregata sul tempo e sulla longitudine, quindi l'informazione che abbiamo è una temperatura per latitudine, difatti possiamo notare come spostandoci verso i poli la temperatura diminuisce 
+</span><span class="s0">#%% 
+</span><span class="s2">model_hiram.ts.mean((</span><span class="s4">'time'</span><span class="s1">,</span><span class="s4">'lon'</span><span class="s2">)).plot()</span>
+<span class="s0">#%% md 
+</span><span class="s2">Quindi di seguito calcoliamo le anomalie solo di un modello con la media descritta precedentemente 
+</span><span class="s0">#%% 
+</span><span class="s2">model_hiram[</span><span class="s4">'anomaly'</span><span class="s2">] = (model_hiram.ts - </span><span class="s3">273</span><span class="s2">) - (model_hiram.ts.mean((</span><span class="s4">'time'</span><span class="s1">,</span><span class="s4">'lon'</span><span class="s2">))- </span><span class="s3">273</span><span class="s2">)</span>
+<span class="s0">#%% 
+</span>
+
+<span class="s2">p0 = model_hiram.anomaly.mean(</span><span class="s4">'time'</span><span class="s2">).plot(transform=ccrs.PlateCarree()</span><span class="s1">,</span><span class="s2">subplot_kws={</span><span class="s4">'projection'</span><span class="s2">: ccrs.Robinson()}</span><span class="s1">,</span>
+                            <span class="s2">cmap=</span><span class="s4">'jet'</span><span class="s2">)</span>
+<span class="s2">p0.axes.coastlines()</span>
+<span class="s2">p0.axes.gridlines()</span>
+<span class="s2">plt.rcParams[</span><span class="s4">&quot;figure.figsize&quot;</span><span class="s2">] = (</span><span class="s3">10</span><span class="s1">,</span><span class="s3">10</span><span class="s2">)</span>
+<span class="s2">plt.title(</span><span class="s4">'Temperature' </span><span class="s2">)</span>
+
+
+<span class="s0">#%% md 
+</span><span class="s2">Ora poichè uno dei modelli ha una minor quantità di suddivisioni in latitudine e longitudine procediamo con l'interpolazione, in questo modo potremo utilizzare i due modelli ensamble 
+</span><span class="s0">#%% 
+</span><span class="s2">model_mri_interp = model_mri.copy()</span>
+<span class="s2">model_mri_interp = model_mri_interp.interp(lat=model_hiram.lat</span><span class="s1">, </span><span class="s2">lon=model_hiram.lon</span><span class="s1">, </span><span class="s2">method=</span><span class="s4">'linear'</span><span class="s2">)</span>
+<span class="s0">#%% 
+</span><span class="s2">print(</span><span class="s4">f'il numero di lon è </span><span class="s1">{</span><span class="s2">len(model_mri_interp.lon)</span><span class="s1">} </span><span class="s4">e il numero di lat è </span><span class="s1">{</span><span class="s2">len(model_mri_interp.lat)</span><span class="s1">}</span><span class="s4">'</span><span class="s2">)</span>
+<span class="s2">print(</span><span class="s4">f'il numero di lon è </span><span class="s1">{</span><span class="s2">len(model_hiram.lon)</span><span class="s1">} </span><span class="s4">e il numero di lat è </span><span class="s1">{</span><span class="s2">len(model_hiram.lat)</span><span class="s1">}</span><span class="s4">'</span><span class="s2">)</span>
+<span class="s0">#%% md 
+</span><span class="s2">Ora creiamo il nuovo modello, in questo modo abbiamo una nuova variabile ts2 che ci descrive la temperatura del secondo modello. 
+E con il comando drop eliminiamo le informazioni superflue 
+</span><span class="s0">#%% 
+</span><span class="s2">ens = model_mri_interp.merge(model_hiram.ts.rename(</span><span class="s4">'ts2'</span><span class="s2">))</span>
+<span class="s2">ens = ens.drop_vars((</span><span class="s4">'lat_bnds'</span><span class="s1">,</span><span class="s4">'lon_bnds'</span><span class="s1">,</span><span class="s4">'time_bnds'</span><span class="s2">))</span>
+<span class="s2">ens</span>
+<span class="s0">#%% md 
+</span><span class="s2">Ora calcoliamo le anomalie dei due modelli e droppiamo le ts 
+</span><span class="s0">#%% 
+</span><span class="s2">ens[</span><span class="s4">'ts_anomaly'</span><span class="s2">] = (ens.ts - </span><span class="s3">273</span><span class="s2">) - (ens.ts.mean((</span><span class="s4">'time'</span><span class="s1">,</span><span class="s4">'lon'</span><span class="s2">))-</span><span class="s3">273</span><span class="s2">)</span>
+<span class="s2">ens[</span><span class="s4">'ts2_anomaly'</span><span class="s2">] =( ens.ts2 - </span><span class="s3">273</span><span class="s2">) - (ens.ts2.mean((</span><span class="s4">'time'</span><span class="s1">,</span><span class="s4">'lon'</span><span class="s2">)) - </span><span class="s3">273</span><span class="s2">)</span>
+<span class="s2">ens = ens.drop_vars((</span><span class="s4">'ts'</span><span class="s1">,</span><span class="s4">'ts2'</span><span class="s2">))</span>
+<span class="s2">ens</span>
+<span class="s0">#%% md 
+</span><span class="s2">ora calcolo le medie delle anomalie 
+</span><span class="s0">#%% 
+</span><span class="s2">ens_mean = ens.to_array(dim=</span><span class="s4">'new'</span><span class="s2">).mean(</span><span class="s4">'new'</span><span class="s2">)</span>
+<span class="s2">ens_stdev = ens.to_array(dim=</span><span class="s4">'new2'</span><span class="s2">).std(</span><span class="s4">'new2'</span><span class="s2">)</span>
+
+<span class="s2">ens[</span><span class="s4">'ens_mean'</span><span class="s2">] = ens_mean  </span><span class="s0"># convert to Celsius</span>
+<span class="s2">ens[</span><span class="s4">'ens_stdev'</span><span class="s2">] = ens_stdev</span>
+<span class="s2">ens = ens.drop_vars((</span><span class="s4">'ts_anomaly'</span><span class="s1">,</span><span class="s4">'ts2_anomaly'</span><span class="s2">))</span>
+
+<span class="s2">ens.coords[</span><span class="s4">'lon'</span><span class="s2">] = (ens.coords[</span><span class="s4">'lon'</span><span class="s2">] + </span><span class="s3">180</span><span class="s2">) % </span><span class="s3">360 </span><span class="s2">- </span><span class="s3">180</span>
+<span class="s2">ens = ens.sortby(ens.lon)</span>
+
+<span class="s2">ens</span>
+<span class="s0">#%% 
+</span><span class="s2">ens.to_netcdf(</span><span class="s4">'./model_ens.nc'</span><span class="s2">)</span>
+<span class="s0">#%% md 
+</span><span class="s2">E decido di plottare le informazioni ottenute, quindi all'interno del plot possiamo osservare le zone con differenze positive o meno delle temperature 
+</span><span class="s0">#%% 
+</span><span class="s2">fig = plt.figure(figsize=(</span><span class="s3">20</span><span class="s1">, </span><span class="s3">10</span><span class="s2">))</span>
+<span class="s2">p0 = ens.ens_mean.mean(</span><span class="s4">'time'</span><span class="s2">).plot(transform=ccrs.PlateCarree()</span><span class="s1">,</span><span class="s2">subplot_kws={</span><span class="s4">'projection'</span><span class="s2">: ccrs.Robinson()}</span><span class="s1">,</span>
+                            <span class="s2">cmap=</span><span class="s4">'jet'</span><span class="s2">)</span>
+<span class="s2">p0.axes.coastlines()</span>
+<span class="s2">p0.axes.gridlines()</span>
+<span class="s2">plt.rcParams[</span><span class="s4">&quot;figure.figsize&quot;</span><span class="s2">] = (</span><span class="s3">10</span><span class="s1">,</span><span class="s3">10</span><span class="s2">)</span>
+<span class="s2">plt.title(</span><span class="s4">'Temperature' </span><span class="s2">)</span>
+<span class="s0">#%% md 
+</span><span class="s2">Ora decido di visualizzare le medie delle temperature aggregando sullo spazio, quindi visualizzerò una media globale. 
+Posso osservare una leggera tendenza all'aumento delle anomalie nel tempo 
+</span><span class="s0">#%% 
+</span><span class="s2">ens.ens_mean.mean((</span><span class="s4">'lat'</span><span class="s1">,</span><span class="s4">'lon'</span><span class="s2">)).plot()</span>
+<span class="s0">#%% md 
+</span>
+<span class="s0">#%% md 
+</span><span class="s2">All'interno di questo grafico invece decido di visualizzare un quarto della superficie terrestre 
+</span><span class="s0">#%% 
+</span><span class="s2">ens.ens_mean.sel(lon=slice(-</span><span class="s3">90</span><span class="s1">,</span><span class="s3">0</span><span class="s2">)</span><span class="s1">,</span><span class="s2">lat=slice(-</span><span class="s3">180</span><span class="s1">,</span><span class="s3">0</span><span class="s2">)).mean((</span><span class="s4">'lat'</span><span class="s1">,</span><span class="s4">'lon'</span><span class="s2">)).plot()</span>
+<span class="s0">#%% md 
+</span>
+<span class="s0">#%% md 
+</span><span class="s2">Visualizzo un'altra griglia 
+</span><span class="s0">#%% 
+</span><span class="s2">data_mo[</span><span class="s3">0</span><span class="s2">] = np.array(ens.ens_mean.sel(lat=slice(-</span><span class="s3">90</span><span class="s1">,</span><span class="s2">-</span><span class="s3">89</span><span class="s2">)</span><span class="s1">,</span><span class="s2">lon=slice(-</span><span class="s3">180</span><span class="s1">,</span><span class="s2">-</span><span class="s3">179</span><span class="s2">)).mean((</span><span class="s4">'lat'</span><span class="s1">,</span><span class="s4">'lon'</span><span class="s2">))).reshape(</span><span class="s3">1</span><span class="s1">,</span><span class="s3">60</span><span class="s2">)</span>
+<span class="s0">#%% 
+</span><span class="s2">plt.plot(data_mo[</span><span class="s3">0</span><span class="s2">])</span>
+<span class="s0">#%% md 
+</span><span class="s2">Ora decido di prendere le mie informazioni per griglia, quindi sto visualizzando un punto sulla terra e le anomalie di quel punto per i 5 anni presi in considerazione 
+</span><span class="s0">#%% 
+</span><span class="s2">ens.ens_mean.sel(lat=slice(-</span><span class="s3">90</span><span class="s1">,</span><span class="s2">-</span><span class="s3">89</span><span class="s2">)</span><span class="s1">,</span><span class="s2">lon=slice(-</span><span class="s3">180</span><span class="s1">,</span><span class="s2">-</span><span class="s3">179</span><span class="s2">))</span>
+<span class="s0">#%% md 
+</span><span class="s2">Ora creo la mia tabella con 16200 righe, cioè tutta la suddivisione del modello e 60 colonne, cioè il numero di mesi present in 5 anni. 
+</span><span class="s0">#%% 
+</span><span class="s2">resol = </span><span class="s3">2</span><span class="s0">#5 # degrees (E and N)</span>
+<span class="s2">nlon = np.int(</span><span class="s3">360</span><span class="s2">/resol)</span>
+<span class="s2">nlat = np.int(</span><span class="s3">180</span><span class="s2">/resol)</span>
+<span class="s2">data_mo = np.empty([nlat*nlon</span><span class="s1">, </span><span class="s3">60</span><span class="s2">]</span><span class="s1">,</span><span class="s2">dtype=float)</span>
+<span class="s2">data_mo.shape</span>
+<span class="s0">#%% md 
+</span><span class="s2">Carico i miei dati sfruttando due cicli for, uno sulla latitudine e uno sulla longitudine 
+</span><span class="s0">#%% 
+# Iterate over grid cells and</span>
+<span class="s0"># - get the average time series of all stations in grid cell at month resolution</span>
+<span class="s0"># - integrate to annual resolution</span>
+<span class="s2">c = </span><span class="s3">0</span>
+<span class="s1">for </span><span class="s2">j </span><span class="s1">in </span><span class="s2">range(-</span><span class="s3">180</span><span class="s1">,</span><span class="s3">180</span><span class="s1">,</span><span class="s3">2</span><span class="s2">):</span>
+  <span class="s1">for </span><span class="s2">i </span><span class="s1">in </span><span class="s2">range(-</span><span class="s3">90</span><span class="s1">,</span><span class="s3">90</span><span class="s1">,</span><span class="s3">2</span><span class="s2">):</span>
+
+      <span class="s2">data_mo[c] = np.array(ens.ens_mean.sel(lat=slice(i</span><span class="s1">,</span><span class="s2">i+</span><span class="s3">2</span><span class="s2">)</span><span class="s1">,</span><span class="s2">lon=slice(j</span><span class="s1">,</span><span class="s2">j+</span><span class="s3">2</span><span class="s2">)).mean((</span><span class="s4">'lat'</span><span class="s1">,</span><span class="s4">'lon'</span><span class="s2">))).reshape(</span><span class="s3">1</span><span class="s1">,</span><span class="s3">60</span><span class="s2">)</span>
+      <span class="s2">c += </span><span class="s3">1</span>
+
+<span class="s0">#%% md 
+</span><span class="s2"># Analysis 
+</span><span class="s0">#%% md 
+</span><span class="s2">Di seguito carico i dati inerenti ad i box presenti all'interno del modello embedded e carico i dati delle distanze, si vedrà di seguito come è stata ottenuta quella matrice 
+</span><span class="s0">#%% 
+</span><span class="s2">data_mo = np.load(</span><span class="s4">'/home/giodefa/Desktop/Unimib/Data Science/Second Year/Physics and environmental data lab/Environmental/Materiale Corso/Final_ex/final_exam_envi/bozza/array_comp_16200.npy'</span><span class="s2">)</span>
+<span class="s2">distance_matrix = np.load(</span><span class="s4">'/home/giodefa/Desktop/Unimib/Data Science/Second Year/Physics and environmental data lab/Environmental/Materiale Corso/Final_ex/final_exam_envi/bozza/distance_matrix.npy'</span><span class="s2">)</span>
+<span class="s0">#ens =xr.load_dataset('/home/giodefa/Desktop/Unimib/Data Science/Second Year/Physics and environmental data lab/Environmental/Materiale Corso/Final_ex/final_exam_envi/bozza/model_ens.nc')</span>
+<span class="s0">#%% md 
+</span><span class="s2">Decido di analizzare il mio Dataset prima di tutto scalandolo e poi applico una PCA sul mio dataset e proverò ad estrarre il numero più coerente di cluster osservando alcune metriche dispobibili 
+</span><span class="s0">#%% 
+</span><span class="s1">from </span><span class="s2">sklearn.decomposition </span><span class="s1">import </span><span class="s2">PCA</span>
+<span class="s1">from </span><span class="s2">sklearn.preprocessing </span><span class="s1">import </span><span class="s2">StandardScaler</span>
+
+<span class="s2">x = StandardScaler().fit_transform(data_mo)</span>
+
+<span class="s0">#%% 
+</span><span class="s2">pca = PCA(n_components=</span><span class="s3">3</span><span class="s2">)</span>
+<span class="s2">principalComponents = pca.fit_transform(x)</span>
+<span class="s0">#%% 
+</span><span class="s1">from </span><span class="s2">sklearn.cluster </span><span class="s1">import </span><span class="s2">KMeans</span>
+<span class="s1">from </span><span class="s2">sklearn.datasets </span><span class="s1">import </span><span class="s2">make_blobs</span>
+<span class="s1">from </span><span class="s2">yellowbrick.cluster </span><span class="s1">import </span><span class="s2">KElbowVisualizer</span>
+
+
+<span class="s2">model = KMeans()</span>
+<span class="s2">visualizer = KElbowVisualizer(model</span><span class="s1">, </span><span class="s2">k=(</span><span class="s3">1</span><span class="s1">,</span><span class="s3">15</span><span class="s2">))</span>
+
+<span class="s2">visualizer.fit(x)        </span><span class="s0"># Fit the data to the visualizer</span>
+<span class="s2">visualizer.show()        </span><span class="s0"># Finalize and render the figure</span>
+<span class="s0">#%% 
+</span><span class="s1">from </span><span class="s2">sklearn.cluster </span><span class="s1">import </span><span class="s2">KMeans</span>
+<span class="s1">from </span><span class="s2">sklearn.datasets </span><span class="s1">import </span><span class="s2">make_blobs</span>
+<span class="s1">from </span><span class="s2">yellowbrick.cluster </span><span class="s1">import </span><span class="s2">KElbowVisualizer</span>
+
+
+<span class="s2">model = KMeans()</span>
+<span class="s2">visualizer = KElbowVisualizer(model</span><span class="s1">,</span><span class="s2">metric=</span><span class="s4">'calinski_harabasz'</span><span class="s1">, </span><span class="s2">k=(</span><span class="s3">2</span><span class="s1">,</span><span class="s3">15</span><span class="s2">))</span>
+
+<span class="s2">visualizer.fit(x)        </span><span class="s0"># Fit the data to the visualizer</span>
+<span class="s2">visualizer.show()        </span><span class="s0"># Finalize and render the figure</span>
+<span class="s0">#%% 
+</span><span class="s1">from </span><span class="s2">sklearn.cluster </span><span class="s1">import </span><span class="s2">KMeans</span>
+<span class="s1">from </span><span class="s2">sklearn.datasets </span><span class="s1">import </span><span class="s2">make_blobs</span>
+<span class="s1">from </span><span class="s2">yellowbrick.cluster </span><span class="s1">import </span><span class="s2">KElbowVisualizer</span>
+
+
+<span class="s2">model = KMeans()</span>
+<span class="s2">visualizer = KElbowVisualizer(model</span><span class="s1">,</span><span class="s2">metric=</span><span class="s4">'silhouette'</span><span class="s1">, </span><span class="s2">k=(</span><span class="s3">2</span><span class="s1">,</span><span class="s3">15</span><span class="s2">))</span>
+
+<span class="s2">visualizer.fit(x)        </span><span class="s0"># Fit the data to the visualizer</span>
+<span class="s2">visualizer.show()        </span><span class="s0"># Finalize and render the figure</span>
+<span class="s0">#%% md 
+</span><span class="s2">Osservando i risultati dell'analisi decido di utilizzare 4 cluster, almeno per una prima analisi 
+</span><span class="s0">#%% md 
+</span><span class="s2">Quindi applico l'algoritmo di Kmeans e visualizzo i dati ottenuti 
+</span><span class="s0">#%% 
+</span><span class="s1">from </span><span class="s2">sklearn.cluster </span><span class="s1">import </span><span class="s2">KMeans</span>
+
+<span class="s2">kmeans = KMeans(n_clusters=</span><span class="s3">4</span><span class="s1">, </span><span class="s2">random_state=</span><span class="s3">0</span><span class="s2">).fit(data_mo)</span>
+<span class="s2">labels = kmeans.labels_</span>
+<span class="s0">#%% 
+</span><span class="s1">from </span><span class="s2">mpl_toolkits.mplot3d </span><span class="s1">import </span><span class="s2">Axes3D</span>
+
+
+
+<span class="s2">fig = plt.figure()</span>
+<span class="s2">ax = fig.add_subplot(</span><span class="s3">111</span><span class="s1">, </span><span class="s2">projection = </span><span class="s4">'3d'</span><span class="s2">)</span>
+<span class="s2">ax = Axes3D(fig)</span>
+
+
+<span class="s2">ax.set_xlabel(</span><span class="s4">&quot;x&quot;</span><span class="s2">)</span>
+<span class="s2">ax.set_ylabel(</span><span class="s4">&quot;y&quot;</span><span class="s2">)</span>
+<span class="s2">ax.set_zlabel(</span><span class="s4">&quot;z&quot;</span><span class="s2">)</span>
+<span class="s2">sns.set(style = </span><span class="s4">&quot;darkgrid&quot;</span><span class="s2">)</span>
+<span class="s2">ax.scatter(principalComponents[::</span><span class="s1">,</span><span class="s3">0</span><span class="s2">]</span><span class="s1">, </span><span class="s2">principalComponents[::</span><span class="s1">,</span><span class="s3">1</span><span class="s2">]</span><span class="s1">, </span><span class="s2">principalComponents[::</span><span class="s1">,</span><span class="s3">2</span><span class="s2">]</span><span class="s1">, </span><span class="s2">c=labels)</span>
+
+<span class="s2">plt.show()</span>
+<span class="s0">#%% 
+</span><span class="s2">sns.scatterplot(x=principalComponents[::</span><span class="s1">,</span><span class="s3">0</span><span class="s2">]</span><span class="s1">, </span><span class="s2">y=principalComponents[::</span><span class="s1">,</span><span class="s3">1</span><span class="s2">]</span><span class="s1">, </span><span class="s2">hue=labels</span><span class="s1">, </span><span class="s2">palette=</span><span class="s4">'bright'</span><span class="s2">)</span>
+<span class="s0">#%% md 
+</span><span class="s2">Ora volendo plottare i risultati sulla mappa, decido di creare un dataset ad hoc, dove per ogni punto abbiamo il risultato della clusterizzazione e la posizione nello spazio 
+</span><span class="s0">#%% 
+</span><span class="s2">latitude = []</span>
+<span class="s2">longitude = []</span>
+<span class="s1">for </span><span class="s2">j </span><span class="s1">in </span><span class="s2">range(-</span><span class="s3">180</span><span class="s1">,</span><span class="s3">180</span><span class="s1">,</span><span class="s3">2</span><span class="s2">):</span>
+    <span class="s1">for </span><span class="s2">i </span><span class="s1">in </span><span class="s2">range(-</span><span class="s3">90</span><span class="s1">,</span><span class="s3">90</span><span class="s1">,</span><span class="s3">2</span><span class="s2">):</span>
+        <span class="s2">latitude.append(j)</span>
+        <span class="s2">longitude.append(i)</span>
+<span class="s0">#%% 
+</span><span class="s1">def </span><span class="s2">search_position():</span>
+    <span class="s2">latitude = []</span>
+    <span class="s2">longitude = []</span>
+    <span class="s1">for </span><span class="s2">j </span><span class="s1">in </span><span class="s2">range(-</span><span class="s3">180</span><span class="s1">,</span><span class="s3">180</span><span class="s1">,</span><span class="s3">2</span><span class="s2">):</span>
+        <span class="s1">for </span><span class="s2">i </span><span class="s1">in </span><span class="s2">range(-</span><span class="s3">90</span><span class="s1">,</span><span class="s3">90</span><span class="s1">,</span><span class="s3">2</span><span class="s2">):</span>
+            <span class="s2">latitude.append(j)</span>
+            <span class="s2">longitude.append(i)</span>
+    <span class="s1">return </span><span class="s2">latitude</span><span class="s1">,</span><span class="s2">longitude</span>
+<span class="s0">#%% 
+</span><span class="s2">labels_dataframe_point = pd.DataFrame(labels</span><span class="s1">,</span><span class="s2">columns=[</span><span class="s4">'labels'</span><span class="s2">])</span>
+
+<span class="s2">latitude = pd.DataFrame(latitude</span><span class="s1">, </span><span class="s2">columns=[</span><span class="s4">'latitude'</span><span class="s2">])</span>
+<span class="s2">longitude = pd.DataFrame(longitude</span><span class="s1">, </span><span class="s2">columns=[</span><span class="s4">'longitude'</span><span class="s2">])</span>
+
+<span class="s2">labels_dataframe_point = pd.concat([labels_dataframe_point</span><span class="s1">,</span><span class="s2">latitude</span><span class="s1">,</span><span class="s2">longitude]</span><span class="s1">,</span><span class="s2">axis=</span><span class="s3">1</span><span class="s2">)</span>
+
+<span class="s2">labels_dataframe_point</span>
+<span class="s0">#%% md 
+</span><span class="s2">Ora posso pensare di unire tutti i vari passaggi in un'unica funzione che mi permette di decidere il numero di cluster e plottarli automaticamente, in questo modo posso valutare le varie suddivisioni 
+</span><span class="s0">#%% 
+</span><span class="s2">select_numebr_of_cluster_and_plot(data_mo</span><span class="s1">,</span><span class="s3">4</span><span class="s2">)</span>
+<span class="s0">#%% md 
+</span><span class="s2">Successivamente decido di applicare uno studio sulle serie storiche attraverso l'utilizo della Dynamic Time Warping, quindi verranno messe a confronto tutte le serie storiche punto per punto e verrà valutata la distanza tra queste, il tutto verrà salvato all'interno della variabile distance matrix che servirà più avanti per l'applicazione di un algoritmo gerarchico. 
+</span><span class="s0">#%% 
+</span><span class="s1">from </span><span class="s2">dtaidistance </span><span class="s1">import </span><span class="s2">dtw</span>
+
+
+<span class="s2">n_series = len(data_mo)</span>
+<span class="s2">distance_matrix = np.zeros(shape=(n_series</span><span class="s1">, </span><span class="s2">n_series))</span>
+<span class="s2">distance_matrix = dtw.distance_matrix_fast(data_mo)</span>
+<span class="s2">np.save(</span><span class="s4">'distance_matrix.npy'</span><span class="s1">,</span><span class="s2">distance_matrix)</span>
+<span class="s0">#%% 
+</span><span class="s2">linkage_matrix = hierarchical_clustering(distance_matrix</span><span class="s1">, </span><span class="s2">method=</span><span class="s4">'complete'</span><span class="s2">)</span>
+<span class="s0">#%% md 
+</span><span class="s2">Di seguito viene visualizzato il dendogramma contenente tutti i punti, quindi punti vicini vengono piano piano uniti fino all'unione di tutti i punti presenti nel dataset 
+</span><span class="s0">#%% 
+</span><span class="s2">fig = plt.figure(figsize=(</span><span class="s3">10</span><span class="s1">, </span><span class="s3">4</span><span class="s2">))</span>
+<span class="s2">dn = dendrogram(loaded_model)</span>
+<span class="s2">plt.title(</span><span class="s4">f&quot;Dendrogram for -linkage with correlation distance&quot;</span><span class="s2">)</span>
+<span class="s2">plt.show()</span>
+<span class="s0">#%% 
+# save the model to disk</span>
+<span class="s2">filename = </span><span class="s4">'hir.sav'</span>
+<span class="s2">pickle.dump(linkage_matrix</span><span class="s1">, </span><span class="s2">open(filename</span><span class="s1">, </span><span class="s4">'wb'</span><span class="s2">))</span>
+
+<span class="s0"># some time later...</span>
+
+<span class="s0">#%% 
+</span>
+<span class="s0"># load the model from disk</span>
+<span class="s2">loaded_model = pickle.load(open(filename</span><span class="s1">, </span><span class="s4">'rb'</span><span class="s2">))</span>
+<span class="s2">type(loaded_model)</span>
+<span class="s0">#%% md 
+</span><span class="s2">Di seguito viene tagliato il dendogramma per avere 6 cluster. 
+</span><span class="s0">#%% 
+</span><span class="s1">from </span><span class="s2">scipy </span><span class="s1">import </span><span class="s2">cluster</span>
+
+<span class="s2">cutree = cluster.hierarchy.cut_tree(loaded_model</span><span class="s1">, </span><span class="s2">n_clusters=</span><span class="s3">6</span><span class="s2">)</span>
+<span class="s0">#%% md 
+</span><span class="s2">Posso quindi visualizzare e decidere dove tagliare il dendogramma, sicuramente per così tanti punti il metodo di clusterizzazione gerarchica non sembra essere il più adatto, infatti la maggior parte dei punti viene unita ad un livello molto basso, rendendo difficile l'analisi 
+</span><span class="s0">#%% 
+</span><span class="s2">select_numebr_of_cluster_hier__and_plot(</span><span class="s3">6</span><span class="s2">)</span>
+<span class="s0">#%% md 
+</span><span class="s2">All'interno di questo progetto sono state messe alla prova due metodi di clusterizzazione non supervisionato, questo potrebbe aprire la porta ad analisi più specifiche, magari anche analisi di clusterizzazione spaziale, analisi che non è stata proposta in questo breve lavoro.</span></pre>
+</body>
+</html>

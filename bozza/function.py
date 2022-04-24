@@ -1,10 +1,10 @@
 from pathlib import Path
 import sys
 import matplotlib.pyplot as plt
-import matplotlib.pyplot as plt
 import matplotlib as mpl
-
+from geopy.geocoders import Nominatim
 import numpy as np
+from scipy.cluster.hierarchy import single, complete, average, ward, dendrogram
 
 import cartopy.crs as ccrs
 
@@ -23,7 +23,8 @@ class SearchingModelPath:
         """Insert the name string of the model so i can reach for you"""
         try:
             path_home = Path.home()
-            path_directory = path_home / 'Desktop/Unimib/Data Science/Second Year/Physics and environmental data lab/Environmental/Materiale Corso/Model Folder'
+            path_directory = path_home / 'Desktop/Unimib/Data Science/Second Year/Physics and environmental data ' \
+                                         'lab/Environmental/Materiale Corso/Model Folder '
             path_model = path_directory / name
             if not path_model.exists():
                 sys.exit()
@@ -37,7 +38,8 @@ def searching_model_path(name: str):
     """Insert the name string of the model so i can reach for you"""
     try:
         path_home = Path.home()
-        path_directory = path_home / 'Desktop/Unimib/Data Science/Second Year/Physics and environmental data lab/Environmental/Materiale Corso/Final_ex/Model Folder'
+        path_directory = path_home / 'Desktop/Unimib/Data Science/Second Year/Physics and environmental data ' \
+                                     'lab/Environmental/Materiale Corso/Final_ex/Model Folder '
         path_model = path_directory / name
         if not path_model.exists():
             sys.exit()
@@ -73,3 +75,34 @@ def plot_part_of_map(ens,a,b,c,d):
 
     return
 
+
+def point(city: str):
+
+    geolocator = Nominatim(user_agent="google")
+    location = geolocator.geocode(city)
+    print((location.latitude, location.longitude))
+    lat = (int(location.latitude)+90)
+    lon = (int(location.longitude)+180)
+    box = int(((lat) * ((lon)))/2)
+    ens = xr.load_dataset('/home/giodefa/Desktop/Unimib/Data Science/Second Year/Physics and environmental data '
+                          'lab/Environmental/Materiale Corso/Final_ex/final_exam_envi/bozza/model_ens.nc')
+    print(f"L'area selezionata è {location.address} e fa parte del cluster numero {kmeans.labels_[int(box)-1]}")
+    plot_part_of_map(ens,int(location.latitude),int(location.latitude)+2,int(location.longitude),int(location.longitude)+2)
+    return
+
+
+def hierarchical_clustering(distance_matrix, method='complete'):
+    if method == 'complete':
+        Z = complete(distance_matrix)
+    if method == 'single':
+        Z = single(distance_matrix)
+    if method == 'average':
+        Z = average(distance_matrix)
+    if method == 'ward':
+        Z = ward(distance_matrix)
+
+    fig = plt.figure(figsize=(16, 8))
+    dn = dendrogram(Z)
+    plt.title(f"Dendrogram for {method}-linkage with correlation distance")
+    plt.show()
+    return Z
